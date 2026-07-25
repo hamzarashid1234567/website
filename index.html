@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mobile Manager - Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Mobile Manager</h1>
+
+    <section class="card">
+      <h2>Register Device</h2>
+      <input id="deviceName" placeholder="Device name" />
+      <button id="registerBtn">Register</button>
+      <pre id="registerResult"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Devices</h2>
+      <button id="refreshBtn">Refresh</button>
+      <div id="devices"></div>
+    </section>
+
+    <section class="card">
+      <h2>Send Command</h2>
+      <select id="deviceSelect"></select>
+      <select id="commandSelect">
+        <option value="play_sound">Play sound</option>
+        <option value="show_message">Show message</option>
+        <option value="lock">Lock screen</option>
+      </select>
+      <input id="commandArg" placeholder="Message or arg (optional)" />
+      <button id="sendCmd">Send</button>
+      <pre id="cmdResult"></pre>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

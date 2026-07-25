@@ -1,0 +1,147 @@
+const API = 'http://localhost:8080/api';
+
+async function registerDevice() {
+  const name = document.getElementById('deviceName').value || 'New Device';
+  const res = await fetch(API + '/register', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name})
+  });
+  const data = await res.json();
+  document.getElementById('registerResult').innerText = JSON.stringify(data, null, 2);
+  await refreshDevices();
+}
+
+async function refreshDevices() {
+  const res = await fetch(API + '/devices');
+  const list = await res.json();
+  const container = document.getElementById('devices');
+  const select = document.getElementById('deviceSelect');
+  container.innerHTML = '';
+  select.innerHTML = '';
+  list.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'device-row';
+    el.innerHTML = `<div>${d.name} <small class="${d.status==='online'?'status-online':'status-offline'}">(${d.status})</small></div>
+                    <div><small>${d.id}</small></div>`;
+    container.appendChild(el);
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.innerText = `${d.name} (${d.status})`;
+    select.appendChild(opt);
+  });
+}
+
+async function sendCommand() {
+  const deviceId = document.getElementById('deviceSelect').value;
+  const command = document.getElementById('commandSelect').value;
+  const arg = document.getElementById('commandArg').value;
+  const res = await fetch(API + '/command', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({deviceId, command, args: {text: arg}})
+  });
+  const data = await res.json();
+  document.getElementById('cmdResult').innerText = JSON.stringify(data, null, 2);
+}
+
+document.getElementById('registerBtn').onclick = registerDevice;
+document.getElementById('refreshBtn').onclick = refreshDevices;
+document.getElementById('sendCmd').onclick = sendCommand;
+
+window.onload = refreshDevices;
+package com.example.mobilemanager;
+
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.Button;
+import android.widget.EditText;
+import androidx.appcompat.app.AppCompatActivity;
+import okhttp3.*;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+
+public class MainActivity extends AppCompatActivity {
+    private final String TAG = "DeviceApp";
+    private final String SERVER_HTTP = "http://10.0.2.2:8080/api"; // emulator maps localhost to 10.0.2.2
+    private final String WS_URL = "ws://10.0.2.2:8080/ws/device";
+    private OkHttpClient client;
+    private WebSocket ws;
+    private String deviceId, secret;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        client = new OkHttpClient();
+
+        Button btnRegister = findViewById(R.id.btnRegister);
+        EditText edtName = findViewById(R.id.edtName);
+
+        btnRegister.setOnClickListener(v -> registerDevice(edtName.getText().toString()));
+    }
+
+    private void registerDevice(String name) {
+        RequestBody body = RequestBody.create(MediaType.get("application/json"), "{\"name\":\"" + name + "\"}");
+        Request req = new Request.Builder().url(SERVER_HTTP + "/register").post(body).build();
+        client.newCall(req).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) { Log.e(TAG, "register fail", e); }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String text = response.body().string();
+                Log.i(TAG, "register reply: " + text);
+                try {
+                    JSONObject o = new JSONObject(text);
+                    deviceId = o.getString("deviceId");
+                    secret = o.getString("secret");
+                    runOnUiThread(() -> connectWebSocket());
+                } catch (JSONException e) { e.printStackTrace(); }
+            }
+        });
+    }
+
+    private void connectWebSocket() {
+        Request req = new Request.Builder().url(WS_URL).build();
+        ws = client.newWebSocket(req, new WebSocketListener() {
+            @Override public void onOpen(WebSocket webSocket, Response response) {
+                Log.i(TAG, "WS open");
+                try {
+                    JSONObject reg = new JSONObject();
+                    reg.put("type", "register");
+                    reg.put("deviceId", deviceId);
+                    reg.put("secret", secret);
+                    reg.put("info", "battery:90%, storage:50%");
+                    webSocket.send(reg.toString());
+                } catch (JSONException e) { e.printStackTrace(); }
+            }
+
+            @Override public void onMessage(WebSocket webSocket, String text) {
+                Log.i(TAG, "WS msg: " + text);
+                try {
+                    JSONObject msg = new JSONObject(text);
+                    String type = msg.optString("type");
+                    if ("command".equals(type)) {
+                        JSONObject payload = msg.optJSONObject("payload");
+                        // handle command -- here, we just log and send result
+                        String cmd = payload.optString("command", payload.optString("cmd", "unknown"));
+                        JSONObject result = new JSONObject();
+                        result.put("type", "result");
+                        result.put("command", cmd);
+                        result.put("success", true);
+                        result.put("output", "Executed " + cmd);
+                        webSocket.send(result.toString());
+                    }
+                } catch (JSONException e) { e.printStackTrace(); }
+            }
+
+            @Override public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+                Log.e(TAG, "WS failure", t);
+            }
+        });
+    }
+
+    @Override protected void onDestroy() {
+        super.onDestroy();
+        if (ws != null) ws.close(1000, "bye");
+        if (client != null) client.dispatcher().executorService().shutdown();
+    }
+}

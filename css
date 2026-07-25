@@ -1,0 +1,16 @@
+:root{
+  --bg:#f5f7fb; --card:#fff; --accent:#3b82f6; --muted:#6b7280;
+}
+body{
+  margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;
+  background:linear-gradient(180deg,#eef2ff 0%, var(--bg) 100%); color:#111;
+}
+.container{max-width:900px;margin:32px auto;padding:16px;}
+h1{margin:0 0 16px 0;color:var(--accent)}
+.card{background:var(--card);padding:16px;border-radius:8px;box-shadow:0 6px 18px rgba(15,23,42,0.06);margin-bottom:16px}
+input,select,button{padding:8px;border-radius:6px;border:1px solid #e6e9ef;margin-right:8px}
+button{background:var(--accent);color:white;border:none}
+#devices{margin-top:8px}
+.device-row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px dashed #f1f5f9}
+.status-online{color:green} .status-offline{color:#777}
+pre{background:#0f172a;color:#fff;padding:8px;border-radius:6px;overflow:auto}
